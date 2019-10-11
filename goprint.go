@@ -19,11 +19,12 @@ func Wrap(v interface{}) *Type {
 }
 
 func (t *Type) Format(s fmt.State, v rune) {
-	format(reflect.ValueOf(t.v), s, s.Flag('+'), false)
+	t.format(reflect.ValueOf(t.v), s, s.Flag('+'), false)
 }
 
 var (
 	ptr          = []byte{'&'}
+	ptrp         = []byte{'*'}
 	dot          = []byte{'.'}
 	colon        = []byte{':'}
 	comma        = []byte{','}
@@ -36,6 +37,7 @@ var (
 	nilt         = []byte{'n', 'i', 'l'}
 	truet        = []byte{'t', 'r', 'u', 'e'}
 	falset       = []byte{'f', 'a', 'l', 's', 'e'}
+	mapt         = []byte{'m', 'a', 'p'}
 )
 
 func printName(w io.Writer, typ reflect.Type) {
@@ -50,7 +52,7 @@ func printName(w io.Writer, typ reflect.Type) {
 	io.WriteString(w, typ.Name())
 }
 
-func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
+func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	switch v.Kind() {
 	case reflect.Ptr:
 		if v.IsNil() {
@@ -58,7 +60,7 @@ func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			return
 		}
 		w.Write(ptr)
-		format(v.Elem(), w, verbose, false)
+		t.format(v.Elem(), w, verbose, false)
 	case reflect.Struct:
 		typ := v.Type()
 		if !inArray {
@@ -76,7 +78,7 @@ func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			ip.Write(newLine)
 			ip.WriteString(tf.Name)
 			ip.Write(colon)
-			format(vf, &ip, verbose, false)
+			t.format(vf, &ip, verbose, false)
 			ip.Write(comma)
 			any = true
 		}
@@ -85,6 +87,9 @@ func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Array:
+		t.formatType(w, v.Type())
+		w.Write(braceOpen)
+		w.Write(braceClose)
 	case reflect.Slice:
 		if v.IsNil() {
 			w.Write(nilt)
@@ -104,7 +109,7 @@ func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			ip := indentPrinter{w}
 			for i := 0; i < l; i++ {
 				ip.Write(newLine)
-				format(v.Index(i), &ip, verbose, true)
+				t.format(v.Index(i), &ip, verbose, true)
 				ip.Write(comma)
 			}
 			w.Write(newLine)
@@ -125,6 +130,37 @@ func format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(falset)
 		}
 	default:
+	}
+}
+
+func (t *Type) formatType(w io.Writer, rt reflect.Type) {
+	for {
+		if n := rt.Name(); n != "" {
+			io.WriteString(w, n)
+			return
+		}
+		switch rt.Kind() {
+		case reflect.Ptr:
+			w.Write(ptrp)
+		case reflect.Struct:
+			return
+		case reflect.Array:
+			w.Write(bracketOpen)
+			io.WriteString(w, strconv.FormatInt(int64(rt.Len()), 10))
+			w.Write(bracketClose)
+		case reflect.Slice:
+			w.Write(bracketOpen)
+			w.Write(bracketClose)
+		case reflect.Map:
+			w.Write(mapt)
+			w.Write(bracketOpen)
+			t.formatType(w, rt.Key())
+			w.Write(bracketClose)
+			t.formatType(w, rt.Elem())
+			return
+		case reflect.Interface:
+		}
+		rt = rt.Elem()
 	}
 }
 
