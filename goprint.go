@@ -89,6 +89,15 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	case reflect.Array:
 		t.formatType(w, v.Type())
 		w.Write(braceOpen)
+		if l := v.Len(); l > 0 {
+			ip := indentPrinter{w}
+			for i := 0; i < l; i++ {
+				ip.Write(newLine)
+				t.format(v.Index(i), &ip, verbose, true)
+				ip.Write(comma)
+			}
+			w.Write(newLine)
+		}
 		w.Write(braceClose)
 	case reflect.Slice:
 		if v.IsNil() {
