@@ -38,9 +38,13 @@ var (
 	truet        = []byte{'t', 'r', 'u', 'e'}
 	falset       = []byte{'f', 'a', 'l', 's', 'e'}
 	mapt         = []byte{'m', 'a', 'p'}
+	structt      = []byte{'s', 't', 'r', 'u', 'c', 't'}
+	tagStart     = []byte{' ', '`'}
+	tagEnd       = tagStart[1:]
+	space        = tagStart[:1]
 )
 
-func printName(w io.Writer, typ reflect.Type) {
+func (t *Type) printName(w io.Writer, typ reflect.Type) {
 	if pkg := typ.PkgPath(); pkg != "" {
 		var pos int
 		if p := strings.LastIndexByte(pkg, '/'); p >= 0 {
@@ -64,7 +68,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	case reflect.Struct:
 		typ := v.Type()
 		if !inArray {
-			printName(w, typ)
+			t.formatType(w, typ)
 		}
 		w.Write(braceOpen)
 		ip := indentPrinter{w}
@@ -111,7 +115,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		} else {
 			w.Write(bracketOpen)
 			w.Write(bracketClose)
-			printName(w, typ.Elem())
+			t.printName(w, typ.Elem())
 		}
 		w.Write(braceOpen)
 		if l := v.Len(); l > 0 {
@@ -145,13 +149,34 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 	for {
 		if n := rt.Name(); n != "" {
-			io.WriteString(w, n)
+			t.printName(w, rt)
 			return
 		}
 		switch rt.Kind() {
 		case reflect.Ptr:
 			w.Write(ptrp)
 		case reflect.Struct:
+			w.Write(structt)
+			w.Write(braceOpen)
+			if l := rt.NumField(); l > 0 {
+				ip := indentPrinter{w}
+				for i := 0; i < l; i++ {
+					ip.Write(newLine)
+					f := rt.Field(i)
+					if !f.Anonymous {
+						io.WriteString(w, f.Name)
+						w.Write(space)
+					}
+					t.formatType(w, f.Type)
+					if f.Tag != "" {
+						w.Write(tagStart)
+						io.WriteString(w, string(f.Tag))
+						w.Write(tagEnd)
+					}
+				}
+				w.Write(newLine)
+			}
+			w.Write(braceClose)
 			return
 		case reflect.Array:
 			w.Write(bracketOpen)
