@@ -9,12 +9,29 @@ import (
 )
 
 type Type struct {
-	v interface{}
+	v     interface{}
+	pkgFn func(io.Writer, reflect.Type)
 }
 
-func Wrap(v interface{}) *Type {
+func PkgName(w io.Writer, typ reflect.Type) {
+	if pkg := typ.PkgPath(); pkg != "" {
+		var pos int
+		if p := strings.LastIndexByte(pkg, '/'); p >= 0 {
+			pos = p + 1
+		}
+		io.WriteString(w, pkg[pos:])
+		w.Write(dot)
+	}
+	io.WriteString(w, typ.Name())
+}
+
+func Wrap(v interface{}, pkgFn func(io.Writer, reflect.Type)) *Type {
+	if pkgFn == nil {
+		pkgFn = PkgName
+	}
 	return &Type{
-		v: v,
+		v:     v,
+		pkgFn: pkgFn,
 	}
 }
 
@@ -43,18 +60,6 @@ var (
 	tagEnd       = tagStart[1:]
 	space        = tagStart[:1]
 )
-
-func (t *Type) printName(w io.Writer, typ reflect.Type) {
-	if pkg := typ.PkgPath(); pkg != "" {
-		var pos int
-		if p := strings.LastIndexByte(pkg, '/'); p >= 0 {
-			pos = p + 1
-		}
-		io.WriteString(w, pkg[pos:])
-		w.Write(dot)
-	}
-	io.WriteString(w, typ.Name())
-}
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	switch v.Kind() {
@@ -115,7 +120,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		} else {
 			w.Write(bracketOpen)
 			w.Write(bracketClose)
-			t.printName(w, typ.Elem())
+			t.pkgFn(w, typ.Elem())
 		}
 		w.Write(braceOpen)
 		if l := v.Len(); l > 0 {
@@ -149,7 +154,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 	for {
 		if n := rt.Name(); n != "" {
-			t.printName(w, rt)
+			t.pkgFn(w, rt)
 			return
 		}
 		switch rt.Kind() {
