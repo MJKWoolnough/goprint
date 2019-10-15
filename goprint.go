@@ -113,15 +113,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(nilt)
 			return
 		}
-		typ := v.Type()
-		n := typ.Name()
-		if n != "" {
-			io.WriteString(w, typ.Name())
-		} else {
-			w.Write(bracketOpen)
-			w.Write(bracketClose)
-			t.pkgFn(w, typ.Elem())
-		}
+		t.formatType(w, v.Type())
 		w.Write(braceOpen)
 		if l := v.Len(); l > 0 {
 			ip := indentPrinter{w}
@@ -134,6 +126,25 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Map:
+		if v.IsNil() {
+			w.Write(nilt)
+			return
+		}
+		t.formatType(w, v.Type())
+		w.Write(braceOpen)
+		keys := v.MapKeys()
+		if len(keys) > 0 {
+			ip := indentPrinter{w}
+			for _, k := range v.MapKeys() {
+				ip.Write(newLine)
+				t.format(k, w, verbose, false)
+				w.Write(colon)
+				t.format(v.MapIndex(k), w, verbose, true)
+				w.Write(comma)
+			}
+			w.Write(newLine)
+		}
+		w.Write(braceClose)
 	case reflect.Interface:
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		io.WriteString(w, strconv.FormatUint(v.Uint(), 10))
