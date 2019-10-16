@@ -49,6 +49,8 @@ var (
 	bracketClose = []byte{']'}
 	braceOpen    = []byte{'{'}
 	braceClose   = []byte{'}'}
+	parenOpen    = []byte{'('}
+	parenClose   = []byte{')'}
 	newLine      = []byte{'\n'}
 	indent       = []byte{'	'}
 	nilt         = []byte{'n', 'i', 'l'}
@@ -59,6 +61,9 @@ var (
 	tagStart     = []byte{' ', '`'}
 	tagEnd       = tagStart[1:]
 	space        = tagStart[:1]
+	interfacet   = []byte{'i', 'n', 't', 'e', 'r', 'f', 'a', 'c', 'e'}
+	funct        = []byte{'f', 'u', 'n', 'c'}
+	ellipsis     = []byte{'.', '.', '.'}
 )
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
@@ -158,6 +163,8 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		} else {
 			w.Write(falset)
 		}
+	case reflect.Func:
+		w.Write(nilt)
 	default:
 	}
 }
@@ -209,6 +216,54 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 			t.formatType(w, rt.Elem())
 			return
 		case reflect.Interface:
+			w.Write(interfacet)
+			w.Write(braceOpen)
+			if l := rt.NumMethod(); l > 0 {
+				ip := indentPrinter{w}
+				for i := 0; i < l; i++ {
+					ip.Write(newLine)
+					m := rt.Method(i)
+					io.WriteString(w, m.Name)
+					w.Write(space)
+					t.formatType(w, m.Type)
+				}
+				w.Write(newLine)
+			}
+			w.Write(braceClose)
+			return
+		case reflect.Func:
+			w.Write(funct)
+			w.Write(space)
+			io.WriteString(w, rt.Name())
+			w.Write(parenOpen)
+			if in := rt.NumIn(); in > 0 {
+				for i := 0; i < in; i++ {
+					if i > 0 {
+						w.Write(comma)
+					}
+					if i == in-1 && rt.IsVariadic() {
+						w.Write(ellipsis)
+						t.formatType(w, rt.In(i).Elem())
+					} else {
+						t.formatType(w, rt.In(i))
+					}
+				}
+			}
+			w.Write(parenClose)
+			out := rt.NumOut()
+			if out != 1 {
+				w.Write(parenOpen)
+			}
+			for i := 0; i < out; i++ {
+				if i > 0 {
+					w.Write(comma)
+				}
+				t.formatType(w, rt.Out(i))
+			}
+			if out > 1 {
+				w.Write(parenClose)
+			}
+			return
 		}
 		rt = rt.Elem()
 	}
