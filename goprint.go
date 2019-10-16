@@ -187,14 +187,14 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 					ip.Write(newLine)
 					f := rt.Field(i)
 					if !f.Anonymous {
-						io.WriteString(w, f.Name)
-						w.Write(space)
+						io.WriteString(&ip, f.Name)
+						ip.Write(space)
 					}
-					t.formatType(w, f.Type)
+					t.formatType(&ip, f.Type)
 					if f.Tag != "" {
-						w.Write(tagStart)
-						io.WriteString(w, string(f.Tag))
-						w.Write(tagEnd)
+						ip.Write(tagStart)
+						io.WriteString(&ip, string(f.Tag))
+						ip.Write(tagEnd)
 					}
 				}
 				w.Write(newLine)
@@ -223,9 +223,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 				for i := 0; i < l; i++ {
 					ip.Write(newLine)
 					m := rt.Method(i)
-					io.WriteString(w, m.Name)
-					w.Write(space)
-					t.formatType(w, m.Type)
+					io.WriteString(&ip, m.Name)
+					ip.Write(space)
+					t.formatType(&ip, m.Type)
 				}
 				w.Write(newLine)
 			}
