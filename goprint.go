@@ -64,6 +64,8 @@ var (
 	interfacet   = []byte{'i', 'n', 't', 'e', 'r', 'f', 'a', 'c', 'e'}
 	funct        = []byte{'f', 'u', 'n', 'c'}
 	ellipsis     = []byte{'.', '.', '.'}
+	complext     = []byte{'i'}
+	complexa     = []byte{' ', '+', ' '}
 )
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
@@ -155,6 +157,22 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		io.WriteString(w, strconv.FormatUint(v.Uint(), 10))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		io.WriteString(w, strconv.FormatInt(v.Int(), 10))
+	case reflect.Float32, reflect.Float64:
+		io.WriteString(w, strconv.FormatFloat(v.Float(), 'f', -1, 64))
+	case reflect.Complex64, reflect.Complex128:
+		c := v.Complex()
+		r := real(c)
+		i := imag(c)
+		if r != 0 {
+			io.WriteString(w, strconv.FormatFloat(r, 'f', -1, 64))
+			if i != 0 {
+				w.Write(complexa)
+			}
+		}
+		if i != 0 {
+			io.WriteString(w, strconv.FormatFloat(i, 'f', -1, 64))
+			w.Write(complext)
+		}
 	case reflect.String:
 		io.WriteString(w, strconv.Quote(v.String()))
 	case reflect.Bool:
