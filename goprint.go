@@ -153,7 +153,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Interface:
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		io.WriteString(w, strconv.FormatUint(v.Uint(), 10))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		io.WriteString(w, strconv.FormatInt(v.Int(), 10))
@@ -173,6 +173,8 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			io.WriteString(w, strconv.FormatFloat(i, 'f', -1, 64))
 			w.Write(complext)
 		}
+	case reflect.UnsafePointer:
+		io.WriteString(w, strconv.FormatUint(uint64(v.Pointer()), 10))
 	case reflect.String:
 		io.WriteString(w, strconv.Quote(v.String()))
 	case reflect.Bool:
