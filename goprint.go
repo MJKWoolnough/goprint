@@ -67,6 +67,7 @@ var (
 	complext     = []byte{'i'}
 	complexa     = []byte{' ', '+', ' '}
 	maket        = []byte{'m', 'a', 'k', 'e'}
+	chant = []byte{'c','h','a','n',' '}
 )
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
@@ -267,8 +268,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 			w.Write(braceClose)
 			return
 		case reflect.Chan:
-			io.WriteString(w, rt.ChanDir().String())
-			w.Write(space)
+			w.Write(chan)
 		case reflect.Func:
 			w.Write(funct)
 			w.Write(space)
