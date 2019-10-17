@@ -66,6 +66,9 @@ var (
 	ellipsis     = []byte{'.', '.', '.'}
 	complext     = []byte{'i'}
 	complexa     = []byte{' ', '+', ' '}
+	maket        = []byte{'m', 'a', 'k', 'e'}
+	chant        = []byte{'c', 'h', 'a', 'n'}
+	chand        = []byte{'<', '-'}
 )
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
@@ -173,6 +176,20 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			io.WriteString(w, strconv.FormatFloat(i, 'f', -1, 64))
 			w.Write(complext)
 		}
+	case reflect.Chan:
+		if v.IsNil() {
+			w.Write(nilt)
+			return
+		}
+		w.Write(maket)
+		w.Write(parenOpen)
+		t.formatType(w, v.Type())
+		if l := v.Cap(); l > 0 {
+			w.Write(comma)
+			w.Write(space)
+			io.WriteString(w, strconv.FormatInt(int64(l), 10))
+		}
+		w.Write(parenClose)
 	case reflect.UnsafePointer:
 		io.WriteString(w, strconv.FormatUint(uint64(v.Pointer()), 10))
 	case reflect.String:
@@ -251,6 +268,18 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 			}
 			w.Write(braceClose)
 			return
+		case reflect.Chan:
+			switch rt.ChanDir() {
+			case reflect.RecvDir:
+				w.Write(chand)
+				w.Write(chant)
+			case reflect.SendDir:
+				w.Write(chant)
+				w.Write(chand)
+			case reflect.BothDir:
+				w.Write(chant)
+			}
+			w.Write(space)
 		case reflect.Func:
 			w.Write(funct)
 			w.Write(space)
