@@ -84,7 +84,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	case reflect.Struct:
 		typ := v.Type()
 		if !inArray {
-			t.formatType(w, typ)
+			t.formatType(w, typ, false)
 		}
 		w.Write(braceOpen)
 		ip := indentPrinter{w}
@@ -107,7 +107,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Array:
-		t.formatType(w, v.Type())
+		t.formatType(w, v.Type(), false)
 		w.Write(braceOpen)
 		if l := v.Len(); l > 0 {
 			ip := indentPrinter{w}
@@ -133,7 +133,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(maket)
 			w.Write(parenOpen)
 		}
-		t.formatType(w, v.Type())
+		t.formatType(w, v.Type(), false)
 		if fullCap {
 			w.Write(braceOpen)
 		} else {
@@ -165,7 +165,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(nilt)
 			return
 		}
-		t.formatType(w, v.Type())
+		t.formatType(w, v.Type(), false)
 		w.Write(braceOpen)
 		keys := v.MapKeys()
 		if len(keys) > 0 {
@@ -221,7 +221,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(maket)
 		w.Write(parenOpen)
-		t.formatType(w, v.Type())
+		t.formatType(w, v.Type(), false)
 		if l := v.Cap(); l > 0 {
 			w.Write(comma)
 			w.Write(space)
@@ -244,7 +244,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	}
 }
 
-func (t *Type) formatType(w io.Writer, rt reflect.Type) {
+func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 	for {
 		if n := rt.Name(); n != "" {
 			t.pkgFn(w, rt)
@@ -265,7 +265,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 						io.WriteString(&ip, f.Name)
 						ip.Write(space)
 					}
-					t.formatType(&ip, f.Type)
+					t.formatType(&ip, f.Type, false)
 					if f.Tag != "" {
 						ip.Write(tagStart)
 						io.WriteString(&ip, string(f.Tag))
@@ -286,9 +286,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 		case reflect.Map:
 			w.Write(mapt)
 			w.Write(bracketOpen)
-			t.formatType(w, rt.Key())
+			t.formatType(w, rt.Key(), false)
 			w.Write(bracketClose)
-			t.formatType(w, rt.Elem())
+			t.formatType(w, rt.Elem(), false)
 			return
 		case reflect.Interface:
 			w.Write(interfacet)
@@ -299,7 +299,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 					ip.Write(newLine)
 					m := rt.Method(i)
 					io.WriteString(&ip, m.Name)
-					t.formatType(&ip, m.Type)
+					t.formatType(&ip, m.Type, true)
 				}
 				w.Write(newLine)
 			}
@@ -308,6 +308,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 		case reflect.Chan:
 			w.Write(chant)
 		case reflect.Func:
+			if !inInterface {
+				w.Write(funct)
+			}
 			w.Write(parenOpen)
 			if in := rt.NumIn(); in > 0 {
 				for i := 0; i < in; i++ {
@@ -317,9 +320,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 					}
 					if i == in-1 && rt.IsVariadic() {
 						w.Write(ellipsis)
-						t.formatType(w, rt.In(i).Elem())
+						t.formatType(w, rt.In(i).Elem(), false)
 					} else {
-						t.formatType(w, rt.In(i))
+						t.formatType(w, rt.In(i), false)
 					}
 				}
 			}
@@ -334,7 +337,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 					w.Write(comma)
 					w.Write(space)
 				}
-				t.formatType(w, rt.Out(i))
+				t.formatType(w, rt.Out(i), false)
 			}
 			if out > 1 {
 				w.Write(parenClose)
