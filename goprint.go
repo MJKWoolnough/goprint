@@ -67,7 +67,9 @@ var (
 	complext     = []byte{'i'}
 	complexa     = []byte{' ', '+', ' '}
 	maket        = []byte{'m', 'a', 'k', 'e'}
-	chant = []byte{'c','h','a','n',' '}
+	chant        = []byte{'c', 'h', 'a', 'n', ' '}
+	appendt      = []byte{'a', 'p', 'p', 'e', 'n', 'd'}
+	zero         = []byte{'0'}
 )
 
 func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
@@ -122,9 +124,29 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(nilt)
 			return
 		}
+		fullCap := true
+		l, c := v.Len(), v.Cap()
+		if l < c && verbose {
+			fullCap = false
+			w.Write(appendt)
+			w.Write(parenOpen)
+			w.Write(maket)
+			w.Write(parenOpen)
+		}
 		t.formatType(w, v.Type())
-		w.Write(braceOpen)
-		if l := v.Len(); l > 0 {
+		if fullCap {
+			w.Write(braceOpen)
+		} else {
+			w.Write(comma)
+			w.Write(space)
+			w.Write(zero)
+			w.Write(comma)
+			w.Write(space)
+			io.WriteString(w, strconv.FormatInt(int64(c), 10))
+			w.Write(parenClose)
+			w.Write(comma)
+		}
+		if l > 0 {
 			ip := indentPrinter{w}
 			for i := 0; i < l; i++ {
 				ip.Write(newLine)
@@ -133,7 +155,11 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			}
 			w.Write(newLine)
 		}
-		w.Write(braceClose)
+		if fullCap {
+			w.Write(braceClose)
+		} else {
+			w.Write(parenClose)
+		}
 	case reflect.Map:
 		if v.IsNil() {
 			w.Write(nilt)
@@ -155,6 +181,19 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Interface:
+		/*
+			switch v.Type().Elem().Kind() {
+			case reflect.Ptr:
+			case reflect.Struct:
+			case reflect.Array:
+			case reflect.Map:
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			case reflect.String:
+			case reflect.Bool:
+			case reflect.Func:
+			}
+		*/
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		io.WriteString(w, strconv.FormatUint(v.Uint(), 10))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -260,7 +299,6 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 					ip.Write(newLine)
 					m := rt.Method(i)
 					io.WriteString(&ip, m.Name)
-					ip.Write(space)
 					t.formatType(&ip, m.Type)
 				}
 				w.Write(newLine)
@@ -268,16 +306,14 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 			w.Write(braceClose)
 			return
 		case reflect.Chan:
-			w.Write(chan)
+			w.Write(chant)
 		case reflect.Func:
-			w.Write(funct)
-			w.Write(space)
-			io.WriteString(w, rt.Name())
 			w.Write(parenOpen)
 			if in := rt.NumIn(); in > 0 {
 				for i := 0; i < in; i++ {
 					if i > 0 {
 						w.Write(comma)
+						w.Write(space)
 					}
 					if i == in-1 && rt.IsVariadic() {
 						w.Write(ellipsis)
@@ -288,6 +324,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 				}
 			}
 			w.Write(parenClose)
+			w.Write(space)
 			out := rt.NumOut()
 			if out != 1 {
 				w.Write(parenOpen)
@@ -295,6 +332,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type) {
 			for i := 0; i < out; i++ {
 				if i > 0 {
 					w.Write(comma)
+					w.Write(space)
 				}
 				t.formatType(w, rt.Out(i))
 			}
