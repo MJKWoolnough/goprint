@@ -80,7 +80,21 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			return
 		}
 		w.Write(ptr)
-		t.format(v.Elem(), w, verbose, false)
+		c := v.Elem()
+		switch c.Kind() {
+		case reflect.Struct:
+			t.format(c, w, verbose, false)
+		default:
+			w.Write(bracketOpen)
+			w.Write(bracketClose)
+			t.formatType(w, c.Type(), false)
+			w.Write(braceOpen)
+			t.format(c, w, verbose, true)
+			w.Write(braceClose)
+			w.Write(bracketOpen)
+			w.Write(zero)
+			w.Write(bracketClose)
+		}
 	case reflect.Struct:
 		typ := v.Type()
 		if !inArray {
