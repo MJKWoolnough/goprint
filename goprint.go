@@ -195,19 +195,22 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Interface:
-		/*
-			switch v.Type().Elem().Kind() {
-			case reflect.Ptr:
-			case reflect.Struct:
-			case reflect.Array:
-			case reflect.Map:
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			case reflect.String:
-			case reflect.Bool:
-			case reflect.Func:
+		typ := v.Elem().Type()
+		switch k := typ.Kind(); k {
+		case reflect.Struct, reflect.Slice:
+			t.format(v.Elem(), w, false, false)
+		case reflect.Ptr:
+			if !v.Elem().IsNil() && typ.Name() == "" {
+				t.format(v.Elem(), w, false, false)
+				break
 			}
-		*/
+			fallthrough
+		default:
+			t.formatType(w, typ, false)
+			w.Write(parenOpen)
+			t.format(v.Elem(), w, false, false)
+			w.Write(parenClose)
+		}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		io.WriteString(w, strconv.FormatUint(v.Uint(), 10))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
