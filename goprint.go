@@ -112,6 +112,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			ip.Write(newLine)
 			ip.WriteString(tf.Name)
 			ip.Write(colon)
+			ip.Write(space)
 			t.format(vf, &ip, verbose, false)
 			ip.Write(comma)
 			any = true
@@ -309,6 +310,7 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 			return
 		case reflect.Interface:
 			w.Write(interfacet)
+			w.Write(space)
 			w.Write(braceOpen)
 			if l := rt.NumMethod(); l > 0 {
 				ip := indentPrinter{w}
