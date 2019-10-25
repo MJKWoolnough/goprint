@@ -273,8 +273,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 			w.Write(ptrp)
 		case reflect.Struct:
 			w.Write(structt)
-			w.Write(braceOpen)
 			if l := rt.NumField(); l > 0 {
+				w.Write(space)
+				w.Write(braceOpen)
 				ip := indentPrinter{w}
 				for i := 0; i < l; i++ {
 					ip.Write(newLine)
@@ -291,6 +292,8 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 					}
 				}
 				w.Write(newLine)
+			} else {
+				w.Write(braceOpen)
 			}
 			w.Write(braceClose)
 			return
@@ -310,9 +313,9 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 			return
 		case reflect.Interface:
 			w.Write(interfacet)
-			w.Write(space)
-			w.Write(braceOpen)
 			if l := rt.NumMethod(); l > 0 {
+				w.Write(space)
+				w.Write(braceOpen)
 				ip := indentPrinter{w}
 				for i := 0; i < l; i++ {
 					ip.Write(newLine)
@@ -321,6 +324,8 @@ func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 					t.formatType(&ip, m.Type, true)
 				}
 				w.Write(newLine)
+			} else {
+				w.Write(braceOpen)
 			}
 			w.Write(braceClose)
 			return
