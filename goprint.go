@@ -8,12 +8,45 @@ import (
 	"strings"
 )
 
-type Type struct {
-	v     interface{}
-	pkgFn func(io.Writer, reflect.Type)
+type config struct {
+	pkgFn         func(io.Writer, reflect.Type)
+	structFilter  func(reflect.Type, string) bool
+	structReplace func(io.Writer, reflect.Type, string, reflect.Value) bool
+	arrayReplace  func(io.Writer, reflect.Type, int, reflect.Value) bool
 }
 
-func PkgName(w io.Writer, typ reflect.Type) {
+type Type struct {
+	v interface{}
+	config
+}
+
+type Opt func(*config)
+
+func PkgName(pf func(io.Writer, reflect.Type)) Opt {
+	return func(c *config) {
+		c.pkgFn = pf
+	}
+}
+
+func StructFilter(sf func(reflect.Type, string) bool) Opt {
+	return func(c *config) {
+		c.structFilter = sf
+	}
+}
+
+func StructReplacer(rf func(io.Writer, reflect.Type, string, reflect.Value) bool) Opt {
+	return func(c *config) {
+		c.structReplace = rf
+	}
+}
+
+func ArrayReplacer(rf func(io.Writer, reflect.Type, int, reflect.Value) bool) Opt {
+	return func(c *config) {
+		c.arrayReplace = rf
+	}
+}
+
+func pkgName(w io.Writer, typ reflect.Type) {
 	if pkg := typ.PkgPath(); pkg != "" {
 		var pos int
 		if p := strings.LastIndexByte(pkg, '/'); p >= 0 {
@@ -25,13 +58,24 @@ func PkgName(w io.Writer, typ reflect.Type) {
 	io.WriteString(w, typ.Name())
 }
 
-func Wrap(v interface{}, pkgFn func(io.Writer, reflect.Type)) *Type {
-	if pkgFn == nil {
-		pkgFn = PkgName
+func noFilter(reflect.Type, string) bool { return true }
+
+func noStructReplace(io.Writer, reflect.Type, string, reflect.Value) bool { return false }
+func noArrayReplace(io.Writer, reflect.Type, int, reflect.Value) bool     { return false }
+
+func Wrap(v interface{}, opts ...Opt) *Type {
+	c := config{
+		pkgFn:         pkgName,
+		structFilter:  noFilter,
+		structReplace: noStructReplace,
+		arrayReplace:  noArrayReplace,
+	}
+	for _, o := range opts {
+		o(&c)
 	}
 	return &Type{
-		v:     v,
-		pkgFn: pkgFn,
+		v:      v,
+		config: c,
 	}
 }
 
@@ -109,11 +153,16 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 				continue
 			}
 			tf := typ.Field(i)
+			if !t.structFilter(typ, tf.Name) {
+				continue
+			}
 			ip.Write(newLine)
 			ip.WriteString(tf.Name)
 			ip.Write(colon)
 			ip.Write(space)
-			t.format(vf, &ip, verbose, false)
+			if !t.structReplace(w, typ, tf.Name, vf) {
+				t.format(vf, &ip, verbose, false)
+			}
 			ip.Write(comma)
 			any = true
 		}
@@ -122,13 +171,17 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		}
 		w.Write(braceClose)
 	case reflect.Array:
-		t.formatType(w, v.Type(), false)
+		typ := v.Type()
+		t.formatType(w, typ, false)
 		w.Write(braceOpen)
 		if l := v.Len(); l > 0 {
 			ip := indentPrinter{w}
 			for i := 0; i < l; i++ {
 				ip.Write(newLine)
-				t.format(v.Index(i), &ip, verbose, true)
+				e := v.Index(i)
+				if !t.arrayReplace(&ip, typ, i, e) {
+					t.format(v.Index(i), &ip, verbose, true)
+				}
 				ip.Write(comma)
 			}
 			w.Write(newLine)
@@ -139,6 +192,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(nilt)
 			return
 		}
+		typ := v.Type()
 		fullCap := true
 		l, c := v.Len(), v.Cap()
 		if l < c && verbose {
@@ -148,7 +202,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			w.Write(maket)
 			w.Write(parenOpen)
 		}
-		t.formatType(w, v.Type(), false)
+		t.formatType(w, typ, false)
 		if fullCap {
 			w.Write(braceOpen)
 		} else {
@@ -166,6 +220,10 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			for i := 0; i < l; i++ {
 				ip.Write(newLine)
 				t.format(v.Index(i), &ip, verbose, true)
+				e := v.Index(i)
+				if !t.arrayReplace(&ip, typ, i, e) {
+					t.format(v.Index(i), &ip, verbose, true)
+				}
 				ip.Write(comma)
 			}
 			w.Write(newLine)
