@@ -219,7 +219,6 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 			ip := indentPrinter{w}
 			for i := 0; i < l; i++ {
 				ip.Write(newLine)
-				t.format(v.Index(i), &ip, verbose, true)
 				e := v.Index(i)
 				if !t.arrayReplace(&ip, typ, i, e) {
 					t.format(v.Index(i), &ip, verbose, true)
