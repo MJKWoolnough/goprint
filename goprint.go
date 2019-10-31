@@ -1,3 +1,4 @@
+// Package goprint allows for the printing of Go Values in Go Code
 package goprint // import "vimagination.zapto.org/goprint"
 
 import (
@@ -15,31 +16,60 @@ type config struct {
 	arrayReplace  func(io.Writer, reflect.Type, int, reflect.Value) bool
 }
 
+// Type in a wrapped type with its print configuration
 type Type struct {
 	v interface{}
 	config
 }
 
+// Opt is a printing option
 type Opt func(*config)
 
+// PkgName sets the function that will write the package name for the type
+// given.
+//
+// This should be used to override the default which takes the Base of the URL
+// as the import name.
 func PkgName(pf func(io.Writer, reflect.Type)) Opt {
 	return func(c *config) {
 		c.pkgFn = pf
 	}
 }
 
+// StructFilter allows for only some fields of a Struct to be printed.
+//
+// The func recieves the struct type and the field name, and should return true
+// to print the field, and false to not print it
 func StructFilter(sf func(reflect.Type, string) bool) Opt {
 	return func(c *config) {
 		c.structFilter = sf
 	}
 }
 
+// StructReplacer allows for some values in struct fields to be replaced.
+//
+// This is intended to aid the replacing of constants with named constants or
+// vars, though other applications are applicable
+//
+// Whatever is written to the Writer will display in place of the constant.
+//
+// The return value should be set to true is the func has written anything, or
+// false otherwise
 func StructReplacer(rf func(io.Writer, reflect.Type, string, reflect.Value) bool) Opt {
 	return func(c *config) {
 		c.structReplace = rf
 	}
 }
 
+// ArrayReplacer allows for some values in an array or slice to be replaced.
+//
+// This is intended to aid the replacing of constants with named constants or
+// vars, though other applications are applicable
+//
+// Whatever is written to the Writer will display in place of the constant.
+//
+// The return value should be set to true is the func has written anything, or
+// false otherwise
 func ArrayReplacer(rf func(io.Writer, reflect.Type, int, reflect.Value) bool) Opt {
 	return func(c *config) {
 		c.arrayReplace = rf
@@ -63,6 +93,7 @@ func noFilter(reflect.Type, string) bool { return true }
 func noStructReplace(io.Writer, reflect.Type, string, reflect.Value) bool { return false }
 func noArrayReplace(io.Writer, reflect.Type, int, reflect.Value) bool     { return false }
 
+// Wrap creates the type printer.
 func Wrap(v interface{}, opts ...Opt) *Type {
 	c := config{
 		pkgFn:         pkgName,
@@ -79,6 +110,7 @@ func Wrap(v interface{}, opts ...Opt) *Type {
 	}
 }
 
+// Format implements the fmt.Formatter interface
 func (t *Type) Format(s fmt.State, v rune) {
 	t.format(reflect.ValueOf(t.v), s, s.Flag('+'), false)
 }
