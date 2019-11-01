@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"vimagination.zapto.org/rwcount"
 )
 
 type config struct {
@@ -113,6 +115,15 @@ func Wrap(v interface{}, opts ...Opt) *Type {
 // Format implements the fmt.Formatter interface
 func (t *Type) Format(s fmt.State, v rune) {
 	t.format(reflect.ValueOf(t.v), s, s.Flag('+'), false)
+}
+
+// WriteTo implements the io.WriterTo interface
+func (t *Type) WriteTo(w io.Writer) (int64, error) {
+	rw := rwcount.Writer{
+		Writer: w,
+	}
+	t.format(reflect.ValueOf(t.v), &rw, true, false)
+	return rw.Count, rw.Err
 }
 
 var (
