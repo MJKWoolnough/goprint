@@ -11,21 +11,51 @@ import (
 	"vimagination.zapto.org/rwcount"
 )
 
-type config struct {
+// Printer represents the options to print out a value
+type Printer struct {
 	pkgFn         func(io.Writer, reflect.Type)
 	structFilter  func(reflect.Type, string) bool
 	structReplace func(io.Writer, reflect.Type, string, reflect.Value) bool
 	arrayReplace  func(io.Writer, reflect.Type, int, reflect.Value) bool
 }
 
-// Type in a wrapped type with its print configuration
-type Type struct {
+// New creates a new Printer from the given options
+func New(opts ...Opt) *Printer {
+	p := &Printer{
+		pkgFn:         pkgName,
+		structFilter:  noFilter,
+		structReplace: noStructReplace,
+		arrayReplace:  noArrayReplace,
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
+}
+
+// Format prints out the value to the writer
+func (p *Printer) Format(w io.Writer, val interface{}) (int64, error) {
+	rw := rwcount.Writer{Writer: w}
+	p.format(reflect.ValueOf(val), &rw, false, false)
+	return rw.Count, rw.Err
+}
+
+// FormatVerbose prints out the value to the writer adding more detail that
+// doesn't change the created value
+func (p *Printer) FormatVerbose(w io.Writer, val interface{}) (int64, error) {
+	rw := rwcount.Writer{Writer: w}
+	p.format(reflect.ValueOf(val), &rw, true, false)
+	return rw.Count, rw.Err
+}
+
+// Value in a wrapped value with its print configuration
+type Value struct {
 	v interface{}
-	config
+	Printer
 }
 
 // Opt is a printing option
-type Opt func(*config)
+type Opt func(*Printer)
 
 // PkgName sets the function that will write the package name for the type
 // given.
@@ -33,8 +63,8 @@ type Opt func(*config)
 // This should be used to override the default which takes the Base of the URL
 // as the import name.
 func PkgName(pf func(io.Writer, reflect.Type)) Opt {
-	return func(c *config) {
-		c.pkgFn = pf
+	return func(p *Printer) {
+		p.pkgFn = pf
 	}
 }
 
@@ -43,8 +73,8 @@ func PkgName(pf func(io.Writer, reflect.Type)) Opt {
 // The func recieves the struct type and the field name, and should return true
 // to print the field, and false to not print it
 func StructFilter(sf func(reflect.Type, string) bool) Opt {
-	return func(c *config) {
-		c.structFilter = sf
+	return func(p *Printer) {
+		p.structFilter = sf
 	}
 }
 
@@ -58,8 +88,8 @@ func StructFilter(sf func(reflect.Type, string) bool) Opt {
 // The return value should be set to true is the func has written anything, or
 // false otherwise
 func StructReplacer(rf func(io.Writer, reflect.Type, string, reflect.Value) bool) Opt {
-	return func(c *config) {
-		c.structReplace = rf
+	return func(p *Printer) {
+		p.structReplace = rf
 	}
 }
 
@@ -73,8 +103,15 @@ func StructReplacer(rf func(io.Writer, reflect.Type, string, reflect.Value) bool
 // The return value should be set to true is the func has written anything, or
 // false otherwise
 func ArrayReplacer(rf func(io.Writer, reflect.Type, int, reflect.Value) bool) Opt {
-	return func(c *config) {
-		c.arrayReplace = rf
+	return func(p *Printer) {
+		p.arrayReplace = rf
+	}
+}
+
+// FromPrinter copies the configuration from an existing Printer
+func FromPrinter(p Printer) Opt {
+	return func(q *Printer) {
+		*q = p
 	}
 }
 
@@ -95,30 +132,31 @@ func noFilter(reflect.Type, string) bool { return true }
 func noStructReplace(io.Writer, reflect.Type, string, reflect.Value) bool { return false }
 func noArrayReplace(io.Writer, reflect.Type, int, reflect.Value) bool     { return false }
 
-// Wrap creates the type printer.
-func Wrap(v interface{}, opts ...Opt) *Type {
-	c := config{
+// Wrap creates a Printer with an embedded value to be used with fmt-like
+// functions
+func Wrap(v interface{}, opts ...Opt) *Value {
+	p := Printer{
 		pkgFn:         pkgName,
 		structFilter:  noFilter,
 		structReplace: noStructReplace,
 		arrayReplace:  noArrayReplace,
 	}
 	for _, o := range opts {
-		o(&c)
+		o(&p)
 	}
-	return &Type{
-		v:      v,
-		config: c,
+	return &Value{
+		v:       v,
+		Printer: p,
 	}
 }
 
 // Format implements the fmt.Formatter interface
-func (t *Type) Format(s fmt.State, v rune) {
+func (t *Value) Format(s fmt.State, v rune) {
 	t.format(reflect.ValueOf(t.v), s, s.Flag('+'), false)
 }
 
 // WriteTo implements the io.WriterTo interface
-func (t *Type) WriteTo(w io.Writer) (int64, error) {
+func (t *Value) WriteTo(w io.Writer) (int64, error) {
 	rw := rwcount.Writer{
 		Writer: w,
 	}
@@ -159,7 +197,7 @@ var (
 	zero         = []byte{'0'}
 )
 
-func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
+func (t *Printer) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	switch v.Kind() {
 	case reflect.Ptr:
 		if v.IsNil() {
@@ -362,7 +400,7 @@ func (t *Type) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	}
 }
 
-func (t *Type) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
+func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 	for {
 		if n := rt.Name(); n != "" {
 			t.pkgFn(w, rt)
