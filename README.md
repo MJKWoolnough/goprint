@@ -2,17 +2,17 @@
 --
     import "vimagination.zapto.org/goprint"
 
-Package goprint allows for the printing of Go Values in Go Code
+Package goprint allows for the printing of Go Values in Go Code.
 
 ## Usage
 
 #### type Opt
 
 ```go
-type Opt func(*config)
+type Opt func(*Printer)
 ```
 
-Opt is a printing option
+Opt is a printing option.
 
 #### func  ArrayReplacer
 
@@ -27,7 +27,14 @@ though other applications are applicable
 Whatever is written to the Writer will display in place of the constant.
 
 The return value should be set to true is the func has written anything, or
-false otherwise
+false otherwise.
+
+#### func  FromPrinter
+
+```go
+func FromPrinter(p Printer) Opt
+```
+FromPrinter copies the configuration from an existing Printer.
 
 #### func  PkgName
 
@@ -47,7 +54,7 @@ func StructFilter(sf func(reflect.Type, string) bool) Opt
 StructFilter allows for only some fields of a Struct to be printed.
 
 The func recieves the struct type and the field name, and should return true to
-print the field, and false to not print it
+print the field, and false to not print it.
 
 #### func  StructReplacer
 
@@ -62,34 +69,67 @@ though other applications are applicable
 Whatever is written to the Writer will display in place of the constant.
 
 The return value should be set to true is the func has written anything, or
-false otherwise
+false otherwise.
 
-#### type Type
+#### type Printer
 
 ```go
-type Type struct {
+type Printer struct {
 }
 ```
 
-Type in a wrapped type with its print configuration
+Printer represents the options to print out a value.
+
+#### func  New
+
+```go
+func New(opts ...Opt) *Printer
+```
+New creates a new Printer from the given options.
+
+#### func (*Printer) Format
+
+```go
+func (p *Printer) Format(w io.Writer, val interface{}) (int64, error)
+```
+Format prints out the value to the writer.
+
+#### func (*Printer) FormatVerbose
+
+```go
+func (p *Printer) FormatVerbose(w io.Writer, val interface{}) (int64, error)
+```
+FormatVerbose prints out the value to the writer adding more detail that doesn't
+change the created value.
+
+#### type Value
+
+```go
+type Value struct {
+	Printer
+}
+```
+
+Value in a wrapped value with its print configuration.
 
 #### func  Wrap
 
 ```go
-func Wrap(v interface{}, opts ...Opt) *Type
+func Wrap(v interface{}, opts ...Opt) *Value
 ```
-Wrap creates the type printer.
+Wrap creates a Printer with an embedded value to be used with fmt-like
+functions.
 
-#### func (*Type) Format
+#### func (*Value) Format
 
 ```go
-func (t *Type) Format(s fmt.State, v rune)
+func (t *Value) Format(s fmt.State, v rune)
 ```
-Format implements the fmt.Formatter interface
+Format implements the fmt.Formatter interface.
 
-#### func (*Type) WriteTo
+#### func (*Value) WriteTo
 
 ```go
-func (t *Type) WriteTo(w io.Writer) (int64, error)
+func (t *Value) WriteTo(w io.Writer) (int64, error)
 ```
 WriteTo implements the io.WriterTo interface
