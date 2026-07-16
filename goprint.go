@@ -36,7 +36,7 @@ func New(opts ...Opt) *Printer {
 }
 
 // Format prints out the value to the writer.
-func (p *Printer) Format(w io.Writer, val interface{}) (int64, error) {
+func (p *Printer) Format(w io.Writer, val any) (int64, error) {
 	rw := rwcount.Writer{Writer: w}
 
 	p.format(reflect.ValueOf(val), &rw, false, false)
@@ -46,7 +46,7 @@ func (p *Printer) Format(w io.Writer, val interface{}) (int64, error) {
 
 // FormatVerbose prints out the value to the writer adding more detail that
 // doesn't change the created value.
-func (p *Printer) FormatVerbose(w io.Writer, val interface{}) (int64, error) {
+func (p *Printer) FormatVerbose(w io.Writer, val any) (int64, error) {
 	rw := rwcount.Writer{Writer: w}
 
 	p.format(reflect.ValueOf(val), &rw, true, false)
@@ -56,7 +56,7 @@ func (p *Printer) FormatVerbose(w io.Writer, val interface{}) (int64, error) {
 
 // Value in a wrapped value with its print configuration.
 type Value struct {
-	v interface{}
+	v any
 	Printer
 }
 
@@ -144,7 +144,7 @@ func noArrayReplace(io.Writer, reflect.Type, int, reflect.Value) bool { return f
 
 // Wrap creates a Printer with an embedded value to be used with fmt-like
 // functions.
-func Wrap(v interface{}, opts ...Opt) *Value {
+func Wrap(v any, opts ...Opt) *Value {
 	p := Printer{
 		pkgFn:         pkgName,
 		structFilter:  noFilter,
@@ -213,7 +213,7 @@ var (
 
 func (t *Printer) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if v.IsNil() {
 			w.Write(nilt)
 			return
@@ -288,7 +288,7 @@ func (t *Printer) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		if l := v.Len(); l > 0 {
 			ip := indentPrinter{w}
 
-			for i := 0; i < l; i++ {
+			for i := range l {
 				ip.Write(newLine)
 
 				e := v.Index(i)
@@ -341,7 +341,7 @@ func (t *Printer) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		if l > 0 {
 			ip := indentPrinter{w}
 
-			for i := 0; i < l; i++ {
+			for i := range l {
 				ip.Write(newLine)
 
 				e := v.Index(i)
@@ -394,7 +394,7 @@ func (t *Printer) format(v reflect.Value, w io.Writer, verbose, inArray bool) {
 		switch k := typ.Kind(); k {
 		case reflect.Struct, reflect.Slice:
 			t.format(v.Elem(), w, false, false)
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if !v.Elem().IsNil() && typ.Name() == "" {
 				t.format(v.Elem(), w, false, false)
 
@@ -474,7 +474,7 @@ func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 		}
 
 		switch rt.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			w.Write(ptrp)
 		case reflect.Struct:
 			w.Write(structt)
@@ -484,7 +484,7 @@ func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 
 				ip := indentPrinter{w}
 
-				for i := 0; i < l; i++ {
+				for i := range l {
 					ip.Write(newLine)
 
 					f := rt.Field(i)
@@ -535,7 +535,7 @@ func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 
 				ip := indentPrinter{w}
 
-				for i := 0; i < l; i++ {
+				for i := range l {
 					ip.Write(newLine)
 
 					m := rt.Method(i)
@@ -562,7 +562,7 @@ func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 			w.Write(parenOpen)
 
 			if in := rt.NumIn(); in > 0 {
-				for i := 0; i < in; i++ {
+				for i := range in {
 					if i > 0 {
 						w.Write(comma)
 						w.Write(space)
@@ -585,7 +585,7 @@ func (t *Printer) formatType(w io.Writer, rt reflect.Type, inInterface bool) {
 				w.Write(parenOpen)
 			}
 
-			for i := 0; i < out; i++ {
+			for i := range out {
 				if i > 0 {
 					w.Write(comma)
 					w.Write(space)
@@ -643,11 +643,11 @@ func (i *indentPrinter) Write(p []byte) (int, error) {
 	return total, nil
 }
 
-func (i *indentPrinter) Print(args ...interface{}) {
+func (i *indentPrinter) Print(args ...any) {
 	fmt.Fprint(i, args...)
 }
 
-func (i *indentPrinter) Printf(format string, args ...interface{}) {
+func (i *indentPrinter) Printf(format string, args ...any) {
 	fmt.Fprintf(i, format, args...)
 }
 
