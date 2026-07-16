@@ -76,7 +76,7 @@ func PkgName(pf func(io.Writer, reflect.Type)) Opt {
 
 // StructFilter allows for only some fields of a Struct to be printed.
 //
-// The func recieves the struct type and the field name, and should return true
+// The func receives the struct type and the field name, and should return true
 // to print the field, and false to not print it.
 func StructFilter(sf func(reflect.Type, string) bool) Opt {
 	return func(p *Printer) {
